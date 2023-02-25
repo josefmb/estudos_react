@@ -1,22 +1,50 @@
 import { nanoid } from 'nanoid';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Todo from './components/Todo.js';
 import Form from './components/Form.js';
 import FilterButton from './components/FilterButton.js';
+
+const FILTER_MAP = {
+  All: () => true,
+  Active: (task) => !task.completed,
+  Completed: (task) => task.completed
+};
+
+const FILTER_NAMES = Object.keys(FILTER_MAP);
+
+function usePrevious(value) {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
 
 function App(props) {
 
   const [ tasks, setTasks ] = useState(props.tasks);
 
-  const taskList = tasks.map((task) => (
-    <Todo 
-      id={ task.id } 
-      name={ task.name } 
-      completed={ task.completed } 
-      key={ task.id }
+  const [ filter, setFilter ] = useState('All');
+
+  const taskList = tasks.filter(FILTER_MAP[filter]).map((task) => (
+    <Todo
+      id={task.id}
+      name={task.name}
+      completed={task.completed}
+      key={task.id}
       toggleTaskCompleted={toggleTaskCompleted}
       deleteTask={deleteTask}
-      />
+      editTask={editTask}
+    />
+  ));
+
+  const filterList = FILTER_NAMES.map((name) => (
+    <FilterButton
+      key={name}
+      name={name}
+      isPressed={name === filter}
+      setFilter={setFilter}
+    />
   ));
 
   function toggleTaskCompleted(id) {
@@ -41,19 +69,39 @@ function App(props) {
     setTasks([...tasks, newTask]);
   }
 
+  function editTask(id, newName) {
+    const editedTaskList = tasks.map((task => {
+      if (id === task.id)
+        return {...task, name: newName};
+
+      return task;
+    }));
+
+    setTasks(editedTaskList);
+  }
+
   const tasksNoun = taskList.length !== 1 ? 'tasks' : 'task';
   const headingText = `${taskList.length} ${tasksNoun} remaining`;
+
+  const listHeadingRef = useRef(null);
+  const prevTaskLength = usePrevious(tasks.length);
+
+  useEffect(() => {
+    if (tasks.length - prevTaskLength === -1) {
+      listHeadingRef.current.focus();
+    }
+  }, [tasks.length, prevTaskLength]);  
 
   return (
     <div className="todoapp stack-large">
       <h1>TodoMatic</h1>
       <Form addTask={addTask} />
       <div className="filters btn-group stack-exception">
-        <FilterButton />
-        <FilterButton />
-        <FilterButton />
+        {filterList}
       </div>
-      <h2 id="list-heading">{headingText}</h2>
+      <h2 id="list-heading" tabIndex="-1" ref={listHeadingRef}>
+        {headingText}
+      </h2>
       <ul
         role="list"
         className="todo-list stack-large stack-exception"
